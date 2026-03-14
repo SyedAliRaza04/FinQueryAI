@@ -1,0 +1,68 @@
+# ─────────────────────────────────────
+#  FinQuery AI — .gitignore
+# ─────────────────────────────────────
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+*.egg
+dist/
+build/
+
+# Virtual Environments
+.venv/
+venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS Files
+.DS_Store
+Thumbs.db
+
+# Django
+db.sqlite3
+db.sqlite3-shm
+db.sqlite3-wal
+
+# Chat history DB (generated at runtime)
+chat_history.db
+chat_history.db-shm
+chat_history.db-wal
+
+# Node / Frontend
+frontend_react/node_modules/
+frontend_react/dist/
+
+# Logs
+*.log
+pip-log.txt
+
+# Testing / Coverage
+.tox/
+.coverage
+.coverage.*
+.cache/
+htmlcov/
+coverage.xml
+nosetests.xml
+*.cover
+
+# Environment variables
+.env
+.env.local
+.env.production
+
+# Gemini / AI assistant artifacts
+.gemini/
+*.db-shm
+*.db-wal

@@ -1,0 +1,9 @@
+.chat-main-container, .analytics-main-container {
+    flex-grow: 1;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    background-color: var(--bg-primary);
+    position: relative;
+    padding: 2rem;
+}

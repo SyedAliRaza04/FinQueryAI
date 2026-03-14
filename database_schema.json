@@ -1,0 +1,420 @@
+{
+    "database_type": "sqlite",
+    "tables": {
+        "customers": {
+            "columns": [
+                {
+                    "name": "age",
+                    "type": "BIGINT",
+                    "nullable": true,
+                    "default": null,
+                    "primary_key": false,
+                    "foreign_key": null,
+                    "description": "Age of the customer/entity."
+                },
+                {
+                    "name": "job",
+                    "type": "TEXT",
+                    "nullable": true,
+                    "default": null,
+                    "primary_key": false,
+                    "foreign_key": null,
+                    "description": "Occupation or job title."
+                },
+                {
+                    "name": "marital",
+                    "type": "TEXT",
+                    "nullable": true,
+                    "default": null,
+                    "primary_key": false,
+                    "foreign_key": null,
+                    "description": "Represents the marital."
+                },
+                {
+                    "name": "education",
+                    "type": "TEXT",
+                    "nullable": true,
+                    "default": null,
+                    "primary_key": false,
+                    "foreign_key": null,
+                    "description": "Educational qualification level."
+                },
+                {
+                    "name": "default",
+                    "type": "TEXT",
+                    "nullable": true,
+                    "default": null,
+                    "primary_key": false,
+                    "foreign_key": null,
+                    "description": "Represents the default."
+                },
+                {
+                    "name": "balance",
+                    "type": "BIGINT",
+                    "nullable": true,
+                    "default": null,
+                    "primary_key": false,
+                    "foreign_key": null,
+                    "description": "Financial balance amount."
+                },
+                {
+                    "name": "housing",
+                    "type": "TEXT",
+                    "nullable": true,
+                    "default": null,
+                    "primary_key": false,
+                    "foreign_key": null,
+                    "description": "Represents the housing."
+                },
+                {
+                    "name": "loan",
+                    "type": "TEXT",
+                    "nullable": true,
+                    "default": null,
+                    "primary_key": false,
+                    "foreign_key": null,
+                    "description": "Represents the loan."
+                },
+                {
+                    "name": "contact",
+                    "type": "TEXT",
+                    "nullable": true,
+                    "default": null,
+                    "primary_key": false,
+                    "foreign_key": null,
+                    "description": "Represents the contact."
+                },
+                {
+                    "name": "day",
+                    "type": "BIGINT",
+                    "nullable": true,
+                    "default": null,
+                    "primary_key": false,
+                    "foreign_key": null,
+                    "description": "Represents the day."
+                },
+                {
+                    "name": "month",
+                    "type": "TEXT",
+                    "nullable": true,
+                    "default": null,
+                    "primary_key": false,
+                    "foreign_key": null,
+                    "description": "Represents the month."
+                },
+                {
+                    "name": "duration",
+                    "type": "BIGINT",
+                    "nullable": true,
+                    "default": null,
+                    "primary_key": false,
+                    "foreign_key": null,
+                    "description": "Represents the duration."
+                },
+                {
+                    "name": "campaign",
+                    "type": "BIGINT",
+                    "nullable": true,
+                    "default": null,
+                    "primary_key": false,
+                    "foreign_key": null,
+                    "description": "Represents the campaign."
+                },
+                {
+                    "name": "pdays",
+                    "type": "BIGINT",
+                    "nullable": true,
+                    "default": null,
+                    "primary_key": false,
+                    "foreign_key": null,
+                    "description": "Represents the pdays."
+                },
+                {
+                    "name": "previous",
+                    "type": "BIGINT",
+                    "nullable": true,
+                    "default": null,
+                    "primary_key": false,
+                    "foreign_key": null,
+                    "description": "Represents the previous."
+                },
+                {
+                    "name": "poutcome",
+                    "type": "TEXT",
+                    "nullable": true,
+                    "default": null,
+                    "primary_key": false,
+                    "foreign_key": null,
+                    "description": "Represents the poutcome."
+                },
+                {
+                    "name": "term_deposit",
+                    "type": "TEXT",
+                    "nullable": true,
+                    "default": null,
+                    "primary_key": false,
+                    "foreign_key": null,
+                    "description": "Represents the term deposit."
+                },
+                {
+                    "name": "customer_name",
+                    "type": "TEXT",
+                    "nullable": true,
+                    "default": null,
+                    "primary_key": false,
+                    "foreign_key": null,
+                    "description": "Name of the customer."
+                },
+                {
+                    "name": "account_number",
+                    "type": "BIGINT",
+                    "nullable": true,
+                    "default": null,
+                    "primary_key": false,
+                    "foreign_key": null,
+                    "description": "Represents the account number."
+                },
+                {
+                    "name": "branch_name",
+                    "type": "TEXT",
+                    "nullable": true,
+                    "default": null,
+                    "primary_key": false,
+                    "foreign_key": null,
+                    "description": "Name of the branch."
+                },
+                {
+                    "name": "customer_id",
+                    "type": "TEXT",
+                    "nullable": true,
+                    "default": null,
+                    "primary_key": false,
+                    "foreign_key": null,
+                    "description": "Identifier referencing customer entity."
+                },
+                {
+                    "name": "email",
+                    "type": "TEXT",
+                    "nullable": true,
+                    "default": null,
+                    "primary_key": false,
+                    "foreign_key": null,
+                    "description": "Email address for contact."
+                },
+                {
+                    "name": "phone_number",
+                    "type": "TEXT",
+                    "nullable": true,
+                    "default": null,
+                    "primary_key": false,
+                    "foreign_key": null,
+                    "description": "Phone number for contact."
+                }
+            ],
+            "primary_keys": [],
+            "foreign_keys": [],
+            "description": "Table storing customers data."
+        },
+        "investment_accounts": {
+            "columns": [
+                {
+                    "name": "investment_id",
+                    "type": "TEXT",
+                    "nullable": true,
+                    "default": null,
+                    "primary_key": false,
+                    "foreign_key": null,
+                    "description": "Identifier referencing investment entity."
+                },
+                {
+                    "name": "customer_id",
+                    "type": "TEXT",
+                    "nullable": true,
+                    "default": null,
+                    "primary_key": false,
+                    "foreign_key": null,
+                    "description": "Identifier referencing customer entity."
+                },
+                {
+                    "name": "account_type",
+                    "type": "TEXT",
+                    "nullable": true,
+                    "default": null,
+                    "primary_key": false,
+                    "foreign_key": null,
+                    "description": "Represents the account type."
+                },
+                {
+                    "name": "balance",
+                    "type": "FLOAT",
+                    "nullable": true,
+                    "default": null,
+                    "primary_key": false,
+                    "foreign_key": null,
+                    "description": "Financial balance amount."
+                },
+                {
+                    "name": "risk_level",
+                    "type": "TEXT",
+                    "nullable": true,
+                    "default": null,
+                    "primary_key": false,
+                    "foreign_key": null,
+                    "description": "Represents the risk level."
+                },
+                {
+                    "name": "opened_date",
+                    "type": "DATE",
+                    "nullable": true,
+                    "default": null,
+                    "primary_key": false,
+                    "foreign_key": null,
+                    "description": "Timestamp or date of the event/record."
+                }
+            ],
+            "primary_keys": [],
+            "foreign_keys": [],
+            "description": "Table storing investment_accounts data."
+        },
+        "loans": {
+            "columns": [
+                {
+                    "name": "loan_id",
+                    "type": "TEXT",
+                    "nullable": true,
+                    "default": null,
+                    "primary_key": false,
+                    "foreign_key": null,
+                    "description": "Identifier referencing loan entity."
+                },
+                {
+                    "name": "customer_id",
+                    "type": "TEXT",
+                    "nullable": true,
+                    "default": null,
+                    "primary_key": false,
+                    "foreign_key": null,
+                    "description": "Identifier referencing customer entity."
+                },
+                {
+                    "name": "loan_type",
+                    "type": "TEXT",
+                    "nullable": true,
+                    "default": null,
+                    "primary_key": false,
+                    "foreign_key": null,
+                    "description": "Represents the loan type."
+                },
+                {
+                    "name": "loan_amount",
+                    "type": "FLOAT",
+                    "nullable": true,
+                    "default": null,
+                    "primary_key": false,
+                    "foreign_key": null,
+                    "description": "Represents the loan amount."
+                },
+                {
+                    "name": "interest_rate",
+                    "type": "FLOAT",
+                    "nullable": true,
+                    "default": null,
+                    "primary_key": false,
+                    "foreign_key": null,
+                    "description": "Represents the interest rate."
+                },
+                {
+                    "name": "start_date",
+                    "type": "DATE",
+                    "nullable": true,
+                    "default": null,
+                    "primary_key": false,
+                    "foreign_key": null,
+                    "description": "Timestamp or date of the event/record."
+                },
+                {
+                    "name": "term_months",
+                    "type": "BIGINT",
+                    "nullable": true,
+                    "default": null,
+                    "primary_key": false,
+                    "foreign_key": null,
+                    "description": "Represents the term months."
+                },
+                {
+                    "name": "status",
+                    "type": "TEXT",
+                    "nullable": true,
+                    "default": null,
+                    "primary_key": false,
+                    "foreign_key": null,
+                    "description": "Represents the status."
+                }
+            ],
+            "primary_keys": [],
+            "foreign_keys": [],
+            "description": "Table storing loans data."
+        },
+        "transactions": {
+            "columns": [
+                {
+                    "name": "transaction_id",
+                    "type": "TEXT",
+                    "nullable": true,
+                    "default": null,
+                    "primary_key": false,
+                    "foreign_key": null,
+                    "description": "Identifier referencing transaction entity."
+                },
+                {
+                    "name": "account_number",
+                    "type": "BIGINT",
+                    "nullable": true,
+                    "default": null,
+                    "primary_key": false,
+                    "foreign_key": null,
+                    "description": "Represents the account number."
+                },
+                {
+                    "name": "transaction_type",
+                    "type": "TEXT",
+                    "nullable": true,
+                    "default": null,
+                    "primary_key": false,
+                    "foreign_key": null,
+                    "description": "Represents the transaction type."
+                },
+                {
+                    "name": "amount",
+                    "type": "FLOAT",
+                    "nullable": true,
+                    "default": null,
+                    "primary_key": false,
+                    "foreign_key": null,
+                    "description": "Represents the amount."
+                },
+                {
+                    "name": "transaction_date",
+                    "type": "DATETIME",
+                    "nullable": true,
+                    "default": null,
+                    "primary_key": false,
+                    "foreign_key": null,
+                    "description": "Timestamp or date of the event/record."
+                },
+                {
+                    "name": "description",
+                    "type": "TEXT",
+                    "nullable": true,
+                    "default": null,
+                    "primary_key": false,
+                    "foreign_key": null,
+                    "description": "Represents the description."
+                }
+            ],
+            "primary_keys": [],
+            "foreign_keys": [],
+            "description": "Table storing transactions data."
+        }
+    }
+}

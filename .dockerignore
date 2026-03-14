@@ -1,0 +1,67 @@
+# ─────────────────────────────────────
+#  FinQuery AI — .dockerignore
+# ─────────────────────────────────────
+
+# Python artifacts
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Virtual environments
+env
+venv
+.venv
+
+# Pip logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Testing/coverage
+.tox
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+
+# Logs
+*.log
+
+# Version control
+.git
+.gitignore
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# Databases (mounted via volume instead)
+db.sqlite3
+db.sqlite3-shm
+db.sqlite3-wal
+chat_history.db
+chat_history.db-shm
+chat_history.db-wal
+
+# Frontend (has its own Dockerfile)
+frontend_react/node_modules
+frontend_react/dist
+frontend_react/.git
+
+# Schema snapshot (regenerated at runtime)
+database_schema.json
+
+# Documentation (not needed in container)
+*.md
+*.pdf
+research.md
+
+# Docker files (prevent recursive copy)
+Dockerfile
+docker-compose.yml
+.dockerignore

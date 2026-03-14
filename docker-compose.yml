@@ -1,0 +1,121 @@
+# ─────────────────────────────────────────────────────────
+#  FinQuery AI — Docker Compose (Full Stack)
+# ─────────────────────────────────────────────────────────
+#  Services:
+#    backend  — Django + Gunicorn (port 8000)
+#    frontend — React + Vite dev server (port 5173)
+#    celery   — Celery worker (shared backend image)
+#    redis    — Message broker + cache
+#    ollama   — Local LLM inference (port 11434)
+# ─────────────────────────────────────────────────────────
+
+services:
+  # ── Django Backend ─────────────────────────────────────
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: finquery-backend
+    command: >
+      sh -c "python manage.py migrate --noinput &&
+             gunicorn config.wsgi:application
+               --bind 0.0.0.0:8000
+               --workers 2
+               --threads 4
+               --timeout 120"
+    volumes:
+      - .:/app
+      - sqlite-data:/app/data
+    ports:
+      - "8000:8000"
+    depends_on:
+      redis:
+        condition: service_healthy
+    environment:
+      - DJANGO_SETTINGS_MODULE=config.settings
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - OLLAMA_HOST=http://ollama:11434
+      - DEBUG=True
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/query/')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+
+  # ── React Frontend ─────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend_react
+      dockerfile: Dockerfile
+    container_name: finquery-frontend
+    volumes:
+      - ./frontend_react:/app
+      - /app/node_modules
+    ports:
+      - "5173:5173"
+    environment:
+      - CHOKIDAR_USEPOLLING=true
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  # ── Celery Worker ──────────────────────────────────────
+  celery:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: finquery-celery
+    command: celery -A config worker --loglevel=info --concurrency=2
+    volumes:
+      - .:/app
+    depends_on:
+      redis:
+        condition: service_healthy
+    environment:
+      - DJANGO_SETTINGS_MODULE=config.settings
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - OLLAMA_HOST=http://ollama:11434
+    restart: unless-stopped
+
+  # ── Redis (Broker + Cache) ─────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: finquery-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # ── Ollama LLM Server ─────────────────────────────────
+  # Uncomment the 'deploy' section if you have an NVIDIA GPU.
+  # Otherwise, Ollama will use CPU inference (slower).
+  ollama:
+    image: ollama/ollama:latest
+    container_name: finquery-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama-models:/root/.ollama
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
+    restart: unless-stopped
+
+volumes:
+  sqlite-data:
+  redis-data:
+  ollama-models:
