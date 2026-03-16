@@ -249,4 +249,8 @@ This project is licensed under the MIT License. See `LICENSE` for details.
 - [**ARCHITECTURE.md**](./ARCHITECTURE.md) — Complete system architecture
 - [**SECURITY.md**](./SECURITY.md) — Security policy, guardrails, PII handling, data residency
 - [**BUSINESS_FEATURES.md**](./BUSINESS_FEATURES.md) — All features and components
-- [**research.md**](./research.md) — AI pipeline research notes
+- [**RAI.md**](./RAI.md) — AI pipeline RAI
+- [**BUSINESS_FEATURES.md**](./BUSINESS_FEATURES.md) — AI pipeline Business Features
+- [**CHANGELOG.md**](./BUSINESS_FEATURES.md) — AI pipeline's ChangeLog.
+  
+
