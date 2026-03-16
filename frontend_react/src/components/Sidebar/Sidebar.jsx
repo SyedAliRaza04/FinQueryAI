@@ -3,6 +3,9 @@ import { Plus, LayoutDashboard, Settings, Trash2, MessageSquare, LogOut } from '
 import SettingsModal from '../Settings/SettingsModal';
 import './Sidebar.css';
 
+import logo from '../../assets/logo.png';
+import chatIcon from '../../assets/chat-icon.png';
+
 const API_BASE_URL = "http://localhost:8000/api";
 
 /**
@@ -79,8 +82,8 @@ const Sidebar = ({ activeView, setActiveView, activeSessionId, setActiveSessionI
       <aside className="sidebar">
         <div className="sidebar-header">
           <div className="logo-container">
-            <div className="logo-icon">🤖</div>
-            <h1 className="logo-text">FinQuery AI</h1>
+            <img src={chatIcon} alt="Icon" className="sidebar-icon-img" />
+            <img src={logo} alt="FinQuery AI" className="sidebar-logo-img" />
           </div>
         </div>
 

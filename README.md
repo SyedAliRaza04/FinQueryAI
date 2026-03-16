@@ -14,6 +14,18 @@
   <img src="https://img.shields.io/badge/License-MIT-yellow" alt="License"/>
 </p>
 
+<p align="center">
+  <a href="https://drive.google.com/file/d/1ks_mNv8OjB1t_08gWttum2fYzQxq9qa4/view?usp=drive_link" target="_blank">
+    <strong>📺 Watch the Demo Video</strong>
+  </a>
+</p>
+
+---
+
+<p align="center">
+  <img src="./UI.png" alt="FinQuery AI Interface" width="100%" />
+</p>
+
 ---
 
 ## ✨ Key Features
