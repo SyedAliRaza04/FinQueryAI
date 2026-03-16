@@ -105,7 +105,13 @@ function AuthOverlay({ mode, setMode, onClose, onSuccess }) {
           </div>
 
           <button className="auth-submit" type="submit" disabled={loading}>
-            {loading ? <Loader2 className="animate-spin mx-auto" size={20} /> : (mode === 'login' ? 'Log In' : 'Sign Up')}
+            {loading ? (
+              <Loader2 className="animate-spin" size={20} />
+            ) : (
+              <>
+                {mode === 'login' ? 'Confirm Login' : 'Create Account'}
+              </>
+            )}
           </button>
         </form>
 

@@ -21,6 +21,12 @@ function LandingPage({ onEnterApp }) {
 
   return (
     <div className="landing-container">
+      <div className="animated-bg">
+        <div className="blob blob-1"></div>
+        <div className="blob blob-2"></div>
+        <div className="blob blob-3"></div>
+      </div>
+
       <div className="landing-content">
         <div className="landing-badge">v2.0 Enterprise POC</div>
         <h1 className="landing-title">FinQuery AI</h1>
