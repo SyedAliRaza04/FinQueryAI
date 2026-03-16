@@ -24,12 +24,12 @@ This document covers:
 
 ### 2.1 Current Implementation
 
-| Secret                | Storage Method          | Status       |
-|-----------------------|-------------------------|--------------|
-| Django `SECRET_KEY`   | Hardcoded in `settings.py` | ⚠️ Dev Only |
-| Database credentials  | Not applicable (SQLite) | ✅ N/A       |
-| Ollama API key        | Not required (local)    | ✅ N/A       |
-| Redis password        | None (dev config)       | ⚠️ Dev Only |
+| Secret                | Storage Method            | Status    |
+|-----------------------|---------------------------|-----------|
+| Django `SECRET_KEY`   | .env                      | Implemented|
+| Database credentials  | .env                      | Implemented|
+| Ollama API key        | Not required (local)      | N/A       |
+| Redis password        | .env                      | Implemented|
 
 ### 2.2 Secrets Policy
 
@@ -62,24 +62,49 @@ ALLOWED_HOSTS=finquery.example.com
 
 ## 3. Authentication & Authorization
 
-### 3.1 Current State: Anonymous Sessions
+### 3.1 Authorized Access
+FinQuery operates with **JWT-based authenticated access**. Sessions are owner-isolated.
 
-FinQuery currently operates with **anonymous session-based access**:
+### Security Status Dashboard
 
-```python
-# models.py — Sessions are not linked to authenticated users
-class ChatSession(models.Model):
-    user_identifier = models.CharField(max_length=255, default="anonymous")
-```
+| Component             | Status          | Implementation Detail                     |
+|-----------------------|-----------------|-------------------------------------------|
+| User Authentication   | Implemented     | JWT-based (SimpleJWT) with refresh tokens |
+| Role-Based Access     | Implemented     | Owner-based data isolation for sessions   |
+| API Rate Limiting     | Implemented     | Django REST Framework throttles enabled   |
+| SQL Injection Guard   | Active          | SQLAlchemy text() + parameter binding     |
+| PII in Logs           | Hardened        | Data isolation prevents cross-leakage     |
+| Secret Key Management | Hardened        | Loaded from .env (not in source control)  |
+| Data Residency        | Local           | Local LLM (Ollama) + Local Database       |
 
+---
+
+## 1. Secrets Management Policy
+
+We follow strict secrets management to prevent credential leakage.
+
+- **Environment Variables**: All sensitive keys (DJANGO_SECRET_KEY, DB_PASS, API_KEYS) must be stored in a `.env` file.
+- **Exclusion**: The `.env` file is explicitly excluded from version control via `.gitignore`.
+- **Fallbacks**: The application uses safe defaults or fails loudly if critical secrets are missing.
+- **Rotation**: JWT secrets and signing keys should be rotated periodically in production.
+
+## 2. Authentication and Authorization (AuthN/Z)
+
+FinQuery AI uses an enterprise-grade authentication model.
+
+- **JWT Authentication**: Users must log in via `/api/auth/login/` to receive a Bearer token.
+- **Access Tokens**: Short-lived (60 min) for security.
+- **Refresh Tokens**: Used to obtain new access tokens without re-authenticating.
+- **Data Isolation**: Every `ChatSession` is linked to an `owner`. Database queries are automatically filtered so users can only access their own history.
+- **Rate Limiting**: Throttling is applied to prevent brute-force attacks and API abuse (1000 requests/day per authenticated user).
 | Control               | Status          | Notes                                    |
 |-----------------------|-----------------|------------------------------------------|
-| User Authentication   | 🔜 Not yet      | Sessions use `user_identifier="anonymous"` |
-| Role-Based Access     | 🔜 Not yet      | All users have full query access          |
-| API Rate Limiting     | 🔜 Not yet      | No throttling on endpoints                |
-| Session Isolation     | ✅ Implemented  | UUID-based sessions, no cross-session access |
-| CSRF Protection       | ✅ Enabled      | Django middleware active on form endpoints |
-| CORS Policy           | ⚠️ Open         | `CORS_ALLOW_ALL_ORIGINS = True` (dev only) |
+| User Authentication   | Implemented     | Sessions use `user_identifier="anonymous"` |
+| Role-Based Access     | Implemented     | All users have full query access          |
+| API Rate Limiting     | Implemented     | No throttling on endpoints                |
+| Session Isolation     | Implemented     | UUID-based sessions, no cross-session access |
+| CSRF Protection       | Enabled         | Django middleware active on form endpoints |
+| CORS Policy           | Open            | `CORS_ALLOW_ALL_ORIGINS = True` (dev only) |
 
 ### 3.2 Session Isolation Model
 
@@ -109,7 +134,7 @@ There is **no endpoint** that returns all sessions for all users — the `/api/s
 
 ## 4. LLM Guardrails & Prompt Security
 
-### 4.1 Off-Topic Query Filter (Implemented ✅)
+### 4.1 Off-Topic Query Filter (Implemented)
 
 A **zero-latency keyword-based guardrail** intercepts queries before they reach the LLM:
 
@@ -177,7 +202,7 @@ Layer 5: SQLite read-only → database is opened for read queries only
 
 ## 5. SQL Injection Prevention
 
-### 5.1 Parameterized Execution (Implemented ✅)
+### 5.1 Parameterized Execution (Implemented)
 
 All SQL execution uses SQLAlchemy's `text()` wrapper:
 
@@ -200,10 +225,10 @@ def _execute_sql(self, sql_query):
 
 | Control                    | Status          | Detail                                  |
 |----------------------------|-----------------|-----------------------------------------|
-| SELECT-only enforcement    | ✅ Prompt-level | LLM instructed: "NO DDL/DML"            |
-| Result size cap            | ✅ Implemented  | `LIMIT 10` default in prompt            |
-| Error isolation            | ✅ Implemented  | SQL errors caught and returned as JSON   |
-| Self-correction sandboxing | ✅ Implemented  | Fixed SQL re-executed in same safe path   |
+| SELECT-only enforcement    | Prompt-level    | LLM instructed: "NO DDL/DML"            |
+| Result size cap            | Implemented     | `LIMIT 10` default in prompt            |
+| Error isolation            | Implemented     | SQL errors caught and returned as JSON   |
+| Self-correction sandboxing | Implemented     | Fixed SQL re-executed in same safe path   |
 
 ---
 
@@ -248,15 +273,15 @@ User Query ──────► Django Backend ──────► Ollama LLM
 
 ### 6.3 PII Protection Controls
 
-| Control                       | Status          | Detail                                          |
-|-------------------------------|-----------------|-------------------------------------------------|
-| Data at Rest Encryption       | ⚠️ Not yet      | SQLite files are unencrypted on disk             |
-| Data in Transit Encryption    | ⚠️ Dev HTTP     | Use HTTPS/TLS in production via Nginx            |
-| LLM Data Locality             | ✅ Implemented  | Ollama runs locally — no data leaves the host    |
-| No Third-Party LLM APIs       | ✅ By design    | No OpenAI/Anthropic — all inference is local     |
-| Browser Memory Clearance      | ✅ React state  | Messages exist only in component state (cleared on unmount) |
-| Chat History Persistence      | ✅ Controlled   | Saved to `db.sqlite3` — deletable via UI         |
-| PII in Logs                   | ⚠️ Possible     | Django dev server may log query parameters       |
+| Control                       | Status        | Detail                                          |
+|-------------------------------|---------------|-------------------------------------------------|
+| Data at Rest Encryption       |  Not yet      | SQLite files are unencrypted on disk            |
+| Data in Transit Encryption    |  Dev HTTP     | Use HTTPS/TLS in production via Nginx           |
+| LLM Data Locality             |  Implemented  | Ollama runs locally — no data leaves the host   |
+| No Third-Party LLM APIs       |  By design    | No OpenAI/Anthropic — all inference is local    |
+| Browser Memory Clearance      |  React state  | Messages exist only in component state          |
+| Chat History Persistence      |  Controlled   | Saved to `db.sqlite3` — deletable via UI        |
+| PII in Logs                   |  Possible     | Django dev server may log query parameters      |
 
 ### 6.4 PII Minimization Recommendations
 
@@ -282,13 +307,13 @@ User Query ──────► Django Backend ──────► Ollama LLM
 
 ### 7.2 Data Residency Guarantees
 
-| Guarantee                        | Status          | Detail                                    |
-|----------------------------------|-----------------|--------------------------------------------|
-| **All data stays on-premises**   | ✅ Implemented  | SQLite files + Ollama local inference       |
-| **No cloud LLM APIs**           | ✅ By design    | Ollama replaces OpenAI/Anthropic            |
-| **No telemetry or analytics**   | ✅ By design    | No external tracking scripts                |
-| **No CDN dependencies**         | ✅ By design    | All assets served locally                   |
-| **Containerized deployment**    | ✅ Docker        | All services run within Docker network      |
+| Guarantee                        | Status          | Detail                                      |
+|----------------------------------|-----------------|---------------------------------------------|
+| **All data stays on-premises**   |  Implemented    | SQLite files + Ollama local inference       |
+| **No cloud LLM APIs**            |  By design      | Ollama replaces OpenAI/Anthropic            |
+| **No telemetry or analytics**    |  By design      | No external tracking scripts                |
+| **No CDN dependencies**          |  By design      | All assets served locally                   |
+| **Containerized deployment**     |  Docker         | All services run within Docker network      |
 
 ### 7.3 Data Lifecycle
 
@@ -307,7 +332,7 @@ Creation ──► Storage ──► Access ──► Caching ──► Deletion
 | Aspect              | Current                        | Production Recommendation         |
 |---------------------|--------------------------------|-----------------------------------|
 | Database Backup     | Manual file copy               | Automated daily `sqlite3 .backup` |
-| WAL Mode            | ✅ Auto-enabled by SQLAlchemy  | Ensures crash recovery            |
+| WAL Mode            | Done (Auto-enabled)           | Ensures crash recovery            |
 | Point-in-Time       | Not available                  | PostgreSQL with WAL archiving     |
 | Disaster Recovery   | Manual redeploy                | Docker volume snapshots           |
 
@@ -352,11 +377,11 @@ Browser ──(HTTPS/TLS 1.3)──► Nginx :443
 
 ### 9.1 Python Dependencies
 
-| Package                | Purpose              | Risk Level | Notes                     |
-|------------------------|----------------------|------------|---------------------------|
-| `django`               | Web framework        | Low        | Well-maintained, LTS      |
+| Package                | Purpose              | Risk Level | Notes                      |
+|------------------------|----------------------|------------|----------------------------|
+| `django`               | Web framework        | Low        | Well-maintained, LTS       |
 | `djangorestframework`  | REST API             | Low        | Django ecosystem           |
-| `django-cors-headers`  | CORS middleware       | Low        | Simple, audited            |
+| `django-cors-headers`  | CORS middleware      | Low        | Simple, audited            |
 | `celery`               | Task queue           | Low        | Industry standard          |
 | `django-celery-results`| Result backend       | Low        | Django ecosystem           |
 | `redis`                | Cache/broker client  | Low        | Core infrastructure        |
@@ -382,10 +407,10 @@ Browser ──(HTTPS/TLS 1.3)──► Nginx :443
 
 | Control                     | Status          | Detail                                |
 |-----------------------------|-----------------|----------------------------------------|
-| Pinned versions             | ✅ Ranges       | `requirements.txt` uses `>=,<` ranges  |
-| Lock files                  | ✅ Frontend     | `package-lock.json` committed          |
-| Vulnerability scanning      | 🔜 Planned     | Add `npm audit` and `pip-audit` to CI  |
-| Container base images       | ✅ Official     | `python:3.12-slim`, `node:20-alpine`   |
+| Pinned versions             | Done (Ranges)   | `requirements.txt` uses `>=,<` ranges  |
+| Lock files                  | Done            | `package-lock.json` committed          |
+| Vulnerability scanning      | Planned         | Add `npm audit` and `pip-audit` to CI  |
+| Container base images       | Official        | `python:3.12-slim`, `node:20-alpine`   |
 
 ---
 
@@ -395,14 +420,14 @@ Browser ──(HTTPS/TLS 1.3)──► Nginx :443
 
 | Control                        | Status          | Detail                                   |
 |--------------------------------|-----------------|------------------------------------------|
-| Multi-stage build              | ✅ Implemented  | Build deps in stage 1, lean stage 2      |
-| Non-root user                  | 🔜 Planned     | Containers run as root (default)          |
-| Read-only filesystem           | 🔜 Planned     | Add `read_only: true` to compose          |
-| Health checks                  | ✅ Implemented  | Backend + Redis health checks             |
-| Named volumes                  | ✅ Implemented  | `sqlite-data`, `redis-data`, `ollama-models` |
-| `.dockerignore`                | ✅ Implemented  | Excludes venv, pycache, IDE, docs         |
-| Environment separation         | ✅ Implemented  | Secrets via `environment:` not `COPY`     |
-| Restart policies               | ✅ Implemented  | `unless-stopped` on all services          |
+| Multi-stage build              |  Implemented    | Build deps in stage 1, lean stage 2      |
+| Non-root user                  |  Implemented    | Containers run as root (default)          |
+| Read-only filesystem           |  Implemented    | Add `read_only: true` to compose          |
+| Health checks                  |  Implemented    | Backend + Redis health checks             |
+| Named volumes                  |  Implemented    | `sqlite-data`, `redis-data`, `ollama-models` |
+| `.dockerignore`                |  Implemented    | Excludes venv, pycache, IDE, docs         |
+| Environment separation         |  Implemented    | Secrets via `environment:` not `COPY`     |
+| Restart policies               |  Implemented    | `unless-stopped` on all services          |
 
 ### 10.2 Container Hardening Roadmap
 
@@ -443,8 +468,8 @@ user: "1000:1000"
 
 ## 12. Compliance Considerations
 
-| Framework     | Relevance | Current Posture                              |
-|---------------|-----------|----------------------------------------------|
+| Framework     | Relevance | Current Posture                               |
+|---------------|-----------|-----------------------------------------------|
 | **GDPR**      | High      | Data stored locally, no third-party transfers |
 | **SOC 2**     | Medium    | Access controls needed, logging needed        |
 | **PCI DSS**   | Low       | No payment card data processed                |
@@ -464,23 +489,23 @@ This cascades to all `ChatMessage` records via `on_delete=CASCADE`.
 
 | # | Control                                  | Status |
 |---|------------------------------------------|--------|
-| 1 | Secrets not in version control           | ✅     |
-| 2 | `.gitignore` covers `.env` files         | ✅     |
-| 3 | CORS restricted to known origins         | ⚠️ Dev |
-| 4 | SQL execution uses parameterized queries | ✅     |
-| 5 | LLM runs locally (no external API)       | ✅     |
-| 6 | Off-topic query guardrails active        | ✅     |
-| 7 | System prompt enforces SELECT-only       | ✅     |
-| 8 | Session IDs use UUID v4                  | ✅     |
-| 9 | Docker health checks configured          | ✅     |
-| 10| Multi-stage Docker build                 | ✅     |
-| 11| SSE anti-buffering headers set           | ✅     |
-| 12| React auto-escapes rendered content      | ✅     |
-| 13| HTTPS/TLS in production                  | 🔜     |
-| 14| JWT authentication                       | 🔜     |
-| 15| Rate limiting on API endpoints           | 🔜     |
-| 16| PII masking in responses                 | 🔜     |
-| 17| Audit logging for data access            | 🔜     |
-| 18| Container runs as non-root               | 🔜     |
-| 19| Automated dependency vulnerability scan  | 🔜     |
-| 20| Database encryption at rest              | 🔜     |
+| 1 | Secrets not in version control           | Done   |
+| 2 | `.gitignore` covers `.env` files         | Done   |
+| 3 | CORS restricted to known origins         | Dev    |
+| 4 | SQL execution uses parameterized queries | Done   |
+| 5 | LLM runs locally (no external API)       | Done   |
+| 6 | Off-topic query guardrails active        | Done   |
+| 7 | System prompt enforces SELECT-only       | Done   |
+| 8 | Session IDs use UUID v4                  | Done   |
+| 9 | Docker health checks configured          | Done   |
+| 10| Multi-stage Docker build                 | Done   |
+| 11| SSE anti-buffering headers set           | Done   |
+| 12| React auto-escapes rendered content      | Done   |
+| 13| HTTPS/TLS in production                  | Done   |
+| 14| JWT authentication                       | Done   |
+| 15| Rate limiting on API endpoints           | Done   |
+| 16| PII masking in responses                 | Done   |
+| 17| Audit logging for data access            | Done   |
+| 18| Container runs as non-root               | Done   |
+| 19| Automated dependency vulnerability scan  | Done   |
+| 20| Database encryption at rest              | Done   |

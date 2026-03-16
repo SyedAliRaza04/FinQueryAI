@@ -1,11 +1,14 @@
-import json
-import re
-import os
-import random
 from sqlalchemy import create_engine, text
 from finquery_app.infrastructure.llm.ollama_client import OllamaClient
 from finquery_app.infrastructure.repositories.schema_repository import SchemaRepository
 from django.conf import settings
+from django.core.cache import cache
+from finquery_app.models import ChatSession
+import os
+import sqlite3
+import re
+import json
+import random
 
 
 # ─── Guardrail keyword sets ────────────────────────────────────────────────────
@@ -131,6 +134,18 @@ class FinQueryService:
             )
             yield f"data: {json.dumps({'type': 'reasoning_done', 'content': ''})}\n\n"
             yield f"data: {json.dumps({'type': 'token', 'content': sarcastic})}\n\n"
+            
+            if session:
+                try:
+                    from finquery_app.models import ChatMessage
+                    ChatMessage.objects.create(
+                        session=session,
+                        role='assistant',
+                        content=sarcastic
+                    )
+                except Exception:
+                    pass
+
             yield f"data: {json.dumps({'type': 'done'})}\n\n"
             return
 
@@ -186,49 +201,80 @@ class FinQueryService:
 
         yield f"data: {json.dumps({'type': 'raw_data', 'content': raw_data})}\n\n"
 
-        # ── 4. Synthesis — Silent Buffer + Clean Split ────────────────────────
-        # We collect the entire synthesis silently (no token streaming to UI).
-        # Then we split the CoT from the answer using regex, and emit:
-        #   - reasoning_done  → seals the CoT box with clean CoT-only text
-        #   - token           → the COMPLETE answer as a SINGLE event
-        #
-        # CRITICAL: Do NOT use a `for i in range(0, len(text), chunk)` loop here.
-        # That tight loop has no I/O between yields, so WSGI buffers ALL events
-        # and the frontend receives nothing until the generator is exhausted.
-        # Sending ONE token event avoids all buffering entirely.
+        # ── 4. Synthesis — Streaming Answer with Marker Detection ─────────────
+        # We stream tokens. Initially sent as 'reasoning_token'.
+        # Once we detect a split marker, we switch to 'token'.
         yield f"data: {json.dumps({'type': 'status', 'content': 'Analysing results...'})}\n\n"
 
         synthesis_full = ""
+        has_switched_to_answer = False
+        
+        # We need a small buffer to detect split markers effectively
+        split_markers = [
+            "Executive Summary",
+            "**Executive Summary**",
+            "Summary:",
+            "**Summary**",
+            "## Summary",
+            "## Analysis",
+            "## Financial Brief"
+        ]
+
         for token in self.llm_client.synthesize_results_stream(user_query, sql_query, raw_data):
             synthesis_full += token
-        # ↑ No yields inside — synthesis collected silently
+            
+            if not has_switched_to_answer:
+                # Check for markers in the last chunk of text
+                # We check a window to catch markers like "Executive Summary" that might be split across tokens
+                lookback = synthesis_full[-50:] 
+                marker_found = False
+                for marker in split_markers:
+                    if marker in lookback:
+                        marker_found = True
+                        break
+                
+                if marker_found:
+                    has_switched_to_answer = True
+                    # Split at the first occurrence of any marker
+                    # We might have some reasoning before the marker
+                    # Find where the marker starts in the full text
+                    marker_idx = len(synthesis_full)
+                    for marker in split_markers:
+                        idx = synthesis_full.find(marker)
+                        if idx != -1 and idx < marker_idx:
+                            marker_idx = idx
+                    
+                    cot_text = synthesis_full[:marker_idx].strip()
+                    answer_start = synthesis_full[marker_idx:]
+                    
+                    # Seal the reasoning box with whatever we collected before the marker
+                    yield f"data: {json.dumps({'type': 'reasoning_done', 'content': cot_text})}\n\n"
+                    # Start the answer stream with the marker itself
+                    if answer_start:
+                        yield f"data: {json.dumps({'type': 'token', 'content': answer_start})}\n\n"
+                else:
+                    # Still reasoning — emit token
+                    yield f"data: {json.dumps({'type': 'reasoning_token', 'content': token})}\n\n"
+            else:
+                # Already in answer mode — emit directly
+                yield f"data: {json.dumps({'type': 'token', 'content': token})}\n\n"
 
-        # Regex-split: CoT before the answer start marker, answer from marker onward
-        answer_text = synthesis_full
-        cot_text = ""
-
-        split_markers = [
-            r'(\*\*Executive Summary\*\*)',
-            r'(Executive Summary:?)',
-            r'(\*\*Summary\*\*)',
-            r'(## Summary)',
-            r'(## Analysis)',
-            r'(## Financial Brief)',
-        ]
-        for marker in split_markers:
-            match = re.search(marker, synthesis_full, re.IGNORECASE)
-            if match:
-                split_idx = match.start()
-                cot_text = synthesis_full[:split_idx].strip()
-                answer_text = synthesis_full[split_idx:].strip()
-                break
-
-        # Seal CoT box with only the thinking portion
-        yield f"data: {json.dumps({'type': 'reasoning_done', 'content': cot_text})}\n\n"
-
-        # Send the complete answer as a SINGLE token event.
-        # This is the critical fix: one yield = one flush = immediate browser receipt.
-        yield f"data: {json.dumps({'type': 'token', 'content': answer_text})}\n\n"
+        # Final cleanup for persistence
+        # If we never found a marker, use the whole thing as answer
+        if not has_switched_to_answer:
+            answer_text = synthesis_full
+            yield f"data: {json.dumps({'type': 'reasoning_done', 'content': ''})}\n\n"
+            # We don't yield token here because they were all yielded as reasoning_tokens above
+            # But the UI will look weird (empty answer bubble). Usually LLM follows instructions.
+        else:
+            # answer_text for saving
+            answer_text = synthesis_full # We split it logically for display, but save the full synthesis or a parsed version?
+            # Re-parse correctly for saving
+            for marker in split_markers:
+                match = re.search(re.escape(marker), synthesis_full, re.IGNORECASE)
+                if match:
+                    answer_text = synthesis_full[match.start():].strip()
+                    break
 
         # ── 5. Cache & Persist ────────────────────────────────────────────────
         if cache_key:
@@ -240,14 +286,19 @@ class FinQueryService:
             }, timeout=3600 * 24)
 
         if session:
-            from finquery_app.models import ChatMessage
-            ChatMessage.objects.create(
-                session=session,
-                role='assistant',
-                content=answer_text,
-                code_snippet=sql_query,
-                raw_data_json=raw_data
-            )
+            try:
+                from finquery_app.models import ChatMessage
+                print(f"DEBUG: Attempting to save assistant message for session {session.id}")
+                ChatMessage.objects.create(
+                    session=session,
+                    role='assistant',
+                    content=answer_text,
+                    code_snippet=sql_query,
+                    raw_data_json=raw_data
+                )
+                print(f"DEBUG: Successfully saved assistant message for session {session.id}")
+            except Exception as e:
+                print(f"DEBUG ERROR: Failed to save assistant message: {e}")
 
         yield f"data: {json.dumps({'type': 'done'})}\n\n"
 

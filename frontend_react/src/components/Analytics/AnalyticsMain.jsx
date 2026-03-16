@@ -22,21 +22,26 @@ const AnalyticsMain = () => {
   }, []);
 
   const fetchAnalytics = async () => {
-      setIsRefreshing(true);
-      try {
-          const res = await fetch(`${API_BASE_URL}/analytics/`);
-          const newData = await res.json();
-          if (res.ok) {
-              setData(newData);
-          } else {
-              console.error("Failed to fetch analytics:", newData.error);
-          }
-      } catch (err) {
-          console.error("Network error fetching analytics:", err);
-      } finally {
-          setIsRefreshing(false);
-      }
-  };
+       setIsRefreshing(true);
+       try {
+           const res = await fetch(`${API_BASE_URL}/analytics/`, {
+               headers: {
+                   'Authorization': `Bearer ${localStorage.getItem('fq-token')}`,
+                   'Content-Type': 'application/json'
+               }
+           });
+           const newData = await res.json();
+           if (res.ok) {
+               setData(newData);
+           } else {
+               console.error("Failed to fetch analytics:", newData.error);
+           }
+       } catch (err) {
+           console.error("Network error fetching analytics:", err);
+       } finally {
+           setIsRefreshing(false);
+       }
+   };
 
   const handleRefresh = () => {
      fetchAnalytics();

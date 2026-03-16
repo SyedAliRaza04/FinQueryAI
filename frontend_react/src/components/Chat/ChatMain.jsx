@@ -49,9 +49,17 @@ const ChatMain = ({ activeSessionId, setActiveSessionId }) => {
     }
   }, [activeSessionId]);
 
+  const getHeaders = () => ({
+    'Authorization': `Bearer ${localStorage.getItem('fq-token')}`,
+    'Content-Type': 'application/json'
+  });
+
   const fetchSessionMessages = async (id) => {
     try {
-      const res = await fetch(`${API_BASE_URL}/sessions/${id}/`);
+      const res = await fetch(`${API_BASE_URL}/sessions/${id}/`, {
+        headers: getHeaders()
+      });
+      if (res.status === 401) return; // Silent failure or handle in App
       const data = await res.json();
       setMessages(data.messages || []);
       if (data.title) setSessionTitle(data.title);
@@ -91,7 +99,7 @@ const ChatMain = ({ activeSessionId, setActiveSessionId }) => {
       try {
         const res = await fetch(`${API_BASE_URL}/sessions/`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: getHeaders(),
           body: JSON.stringify({ title: text.substring(0, 40) }),
         });
         const data = await res.json();
@@ -128,9 +136,16 @@ const ChatMain = ({ activeSessionId, setActiveSessionId }) => {
     streamingRef.current = true;
     streamDoneRef.current = false;
 
-    // ── SSE Connection ──
+    // ── SSE Connection with Token ──
     try {
-      const streamUrl = `${API_BASE_URL}/query/stream/?query=${encodeURIComponent(text)}&session_id=${currentSessionId}`;
+      const token = localStorage.getItem('fq-token');
+      // SimpleJWT often doesn't like tokens in query params but we've updated views 
+      // to handle standard fetch. For EventSource, we need to pass token in query if backend supports it
+      // OR use a polyfill that supports headers. 
+      // Since we updated DRF views but EventSource is natively limited, 
+      // let's ensure the backend can accept token in query string OR just use what we have.
+      // ACTUALLY: Let's use fetch for SSE if we want headers, or just append token.
+      const streamUrl = `${API_BASE_URL}/query/stream/?query=${encodeURIComponent(text)}&session_id=${currentSessionId}&token=${token}`;
       const eventSource = new EventSource(streamUrl);
 
       eventSource.onmessage = (event) => {

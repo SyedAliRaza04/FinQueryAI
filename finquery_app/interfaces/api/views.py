@@ -1,6 +1,11 @@
 from rest_framework import viewsets, status
 from rest_framework.response import Response
-from rest_framework.decorators import action
+from rest_framework.decorators import action, api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated, AllowAny
+from rest_framework_simplejwt.tokens import AccessToken
+from django.http import StreamingHttpResponse, JsonResponse
+from django.contrib.auth.models import User
+from django.core.cache import cache
 from finquery_app.tasks import process_query_task
 from celery.result import AsyncResult
 from finquery_app.models import ChatSession, ChatMessage
@@ -8,12 +13,28 @@ from finquery_app.serializers import ChatSessionSerializer, ChatSessionListSeria
 import sqlite3
 import random
 import os
+import hashlib
+import json
+import uuid
+import time
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def debug_auth(request):
+    """Debug endpoint to verify token authentication."""
+    return Response({
+        "username": request.user.username,
+        "is_authenticated": request.user.is_authenticated,
+        "auth_header": request.headers.get('Authorization', 'Missing')
+    })
 
 class ChatSessionViewSet(viewsets.ModelViewSet):
     """
     API endpoint for handling Chat Histories
     """
-    queryset = ChatSession.objects.all()
+    def get_queryset(self):
+        # Enforce data isolation: users can only see their own sessions
+        return ChatSession.objects.filter(owner=self.request.user)
     
     def get_serializer_class(self):
         if self.action == 'list':
@@ -21,8 +42,8 @@ class ChatSessionViewSet(viewsets.ModelViewSet):
         return ChatSessionSerializer
         
     def perform_create(self, serializer):
-        # We can link specific authenticatd users here later
-        serializer.save(title="New Conversation")
+        # Link session to the authenticated user
+        serializer.save(owner=self.request.user, title="New Conversation")
 
 class QueryViewSet(viewsets.ViewSet):
     """
@@ -44,9 +65,10 @@ class QueryViewSet(viewsets.ViewSet):
              return Response({"error": "Session ID required"}, status=status.HTTP_400_BAD_REQUEST)
              
         try:
-             session = ChatSession.objects.get(id=session_id)
+             # Ensure user owns the session they are querying against
+             session = ChatSession.objects.get(id=session_id, owner=self.request.user)
         except ChatSession.DoesNotExist:
-             return Response({"error": "Invalid Session ID"}, status=status.HTTP_404_NOT_FOUND)
+             return Response({"error": "Invalid Session ID or Access Denied"}, status=status.HTTP_404_NOT_FOUND)
         
         # 1. Save User Message immediately to DB
         ChatMessage.objects.create(
@@ -92,10 +114,8 @@ class QueryViewSet(viewsets.ViewSet):
             # If successful and session_id provided, save the assistant message to the DB
             if session_id and request.query_params.get('save', 'true') == 'true':
                  try:
-                     session = ChatSession.objects.get(id=session_id)
-                     # Only save if we haven't already saved it (avoid duplicate polling writes)
-                     # A robust way is to pass the task_id into the message metadata, 
-                     # but for simplicity we assume the frontend sends save=true exactly once on success.
+                     # Verify ownership during status poll as well
+                     session = ChatSession.objects.get(id=session_id, owner=self.request.user)
                      ChatMessage.objects.create(
                          session=session,
                          role='assistant',
@@ -111,14 +131,24 @@ class QueryViewSet(viewsets.ViewSet):
             
         return Response(response_data)
 
-from django.http import StreamingHttpResponse, JsonResponse
-from django.core.cache import cache
-import hashlib
-import json
-from django.views.decorators.http import require_GET
 
-@require_GET
+# Standard Django view to handle SSE and bypass DRF renderer negotiation (prevents 406 errors)
 def stream_query(request):
+    # Support token in query for EventSource which doesn't support headers easily
+    token = request.GET.get('token')
+    user = request.user
+    
+    if token and not user.is_authenticated:
+        try:
+            access_token = AccessToken(token)
+            user_id = access_token['user_id']
+            user = User.objects.get(id=user_id)
+        except Exception:
+            return JsonResponse({"error": "Invalid Token"}, status=401)
+
+    if not user.is_authenticated:
+        return JsonResponse({"error": "Authentication required"}, status=401)
+        
     user_query = request.GET.get('query')
     session_id = request.GET.get('session_id')
     
@@ -128,13 +158,14 @@ def stream_query(request):
     session = None
     if session_id:
         try:
-            session = ChatSession.objects.get(id=session_id)
+            # Enforce ownership in stream endpoint
+            session = ChatSession.objects.get(id=session_id, owner=user)
             if session.messages.count() <= 1:
                 title = user_query[:30] + "..." if len(user_query) > 30 else user_query
                 session.title = title
                 session.save()
         except ChatSession.DoesNotExist:
-            pass
+            return JsonResponse({"error": "Invalid Session ID or Access Denied"}, status=403)
 
     # 1. Caching Layer
     query_hash = hashlib.md5(user_query.lower().strip().encode('utf-8')).hexdigest()

@@ -29,7 +29,7 @@
 
 ## 2. Repository Structure
 
-```
+```text
 finquery/
 ├── config/                          # Django project configuration
 │   ├── settings.py                  # CORS, Celery, DB, middleware config
@@ -126,14 +126,18 @@ The backend follows the **Clean Architecture** pattern with four layers:
 
 | Method | Endpoint                      | Description                             | Auth |
 |--------|-------------------------------|-----------------------------------------|------|
-| GET    | `/api/sessions/`              | List all chat sessions                  | None |
-| POST   | `/api/sessions/`              | Create a new session                    | None |
-| GET    | `/api/sessions/{id}/`         | Get session with messages               | None |
-| DELETE | `/api/sessions/{id}/`         | Delete a session                        | None |
-| GET    | `/api/query/stream/`          | SSE streaming query endpoint            | None |
-| POST   | `/api/query/execute/`         | Celery-based async query (non-stream)   | None |
-| GET    | `/api/query/{task_id}/status/`| Check Celery task status                | None |
-| GET    | `/api/analytics/`             | Live dashboard KPIs from banking DB     | None |
+| GET    | `/api/sessions/`              | List user's chat sessions               | JWT  |
+| POST   | `/api/sessions/`              | Create a new session                    | JWT  |
+| GET    | `/api/sessions/{id}/`         | Get session with messages               | JWT  |
+| DELETE | `/api/sessions/{id}/`         | Delete a session                        | JWT  |
+| GET    | `/api/query/stream/`          | SSE streaming query endpoint            | JWT* |
+| POST   | `/api/query/execute/`         | Celery-based async query (non-stream)   | JWT  |
+| GET    | `/api/query/{task_id}/status/`| Check Celery task status                | JWT  |
+| GET    | `/api/analytics/`             | Live dashboard KPIs from banking DB     | JWT  |
+| POST   | `/api/auth/register/`         | Create a new account                    | None |
+| POST   | `/api/auth/login/`            | Obtain JWT access/refresh tokens        | None |
+
+*\*SSE endpoint accepts JWT via query parameter `token` to support EventSource constraints.*
 
 ---
 
@@ -177,10 +181,10 @@ User Query
            │
            ▼
 ┌─────────────────────────────────────┐
-│  Stage 4: SYNTHESIS (Silent Buffer) │
+│  Stage 4: SYNTHESIS (Streaming)     │
 │  Senior Financial Analyst persona   │
-│  CoT/Answer split via regex markers │
-│  Answer sent as single token event  │
+│  CoT/Answer split via split markers │
+│  Tokens streamed as SSE events      │
 └──────────┬──────────────────────────┘
            │
            ▼
@@ -201,7 +205,7 @@ User Query
 | `sql`             | `{content: "SELECT …"}`        | Extracted clean SQL              |
 | `raw_data`        | `{content: [{…}, …]}`          | JSON array of query results      |
 | `reasoning_done`  | `{content: "…"}`               | Seals thinking bubble            |
-| `token`           | `{content: "**Executive…"}`    | Complete answer (single event)   |
+| `token`           | `{content: "**Executive…"}`    | Streaming answer tokens          |
 | `done`            | `{}`                           | Signals stream completion        |
 
 ---
@@ -324,12 +328,12 @@ docker-compose.yml
 
 | Area             | Current State                        | Production Recommendation             |
 |------------------|--------------------------------------|---------------------------------------|
-| Authentication   | None (anonymous sessions)            | Add JWT via `rest_framework_simplejwt`|
-| CORS             | `ALLOW_ALL_ORIGINS = True`           | Whitelist frontend domain only        |
-| Secret Key       | Hardcoded dev key                    | Load from `DJANGO_SECRET_KEY` env var |
+| Authentication   | Implemented (JWT)                    | Rotate refresh tokens frequently      |
+| CORS             | Restricted (Whitelisted)             | Use strict allowed origins in prod    |
+| Secret Key       | Hardened (Env Var)                   | Use HSM or Secret Manager in Cloud    |
 | SQL Injection    | Parameterized via SQLAlchemy `text()`| Already safe                          |
-| CSRF             | Disabled for API                     | Token-based auth handles this         |
-| Rate Limiting    | None                                 | Add `django-ratelimit` or DRF throttle|
+| CSRF             | Secured (JWT cookies/headers)        | Use SameSite=Strict cookies           |
+| Rate Limiting    | Implemented (DRF Throttles)          | Scale with Redis-based global limits  |
 
 ---
 

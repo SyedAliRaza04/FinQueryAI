@@ -1,29 +1,34 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, LayoutDashboard, Settings, Trash2, MessageSquare } from 'lucide-react';
+import { Plus, LayoutDashboard, Settings, Trash2, MessageSquare, LogOut } from 'lucide-react';
 import SettingsModal from '../Settings/SettingsModal';
 import './Sidebar.css';
 
 const API_BASE_URL = "http://localhost:8000/api";
 
 /**
- * Sidebar - Main navigation panel with:
- * - New Chat button
- * - Analytics navigation
- * - Chat history with session delete
- * - Settings modal trigger in footer
+ * Sidebar - Main navigation panel with Auth support.
  */
-const Sidebar = ({ activeView, setActiveView, activeSessionId, setActiveSessionId }) => {
+const Sidebar = ({ activeView, setActiveView, activeSessionId, setActiveSessionId, onLogout }) => {
   const [sessions, setSessions] = useState([]);
   const [showSettings, setShowSettings] = useState(false);
   const [hoveredSession, setHoveredSession] = useState(null);
+  const username = localStorage.getItem('fq-user') || 'User';
 
   useEffect(() => {
     fetchSessions();
   }, [activeSessionId]);
 
+  const getHeaders = () => ({
+    'Authorization': `Bearer ${localStorage.getItem('fq-token')}`,
+    'Content-Type': 'application/json'
+  });
+
   const fetchSessions = async () => {
     try {
-      const res = await fetch(`${API_BASE_URL}/sessions/`);
+      const res = await fetch(`${API_BASE_URL}/sessions/`, {
+        headers: getHeaders()
+      });
+      if (res.status === 401) return onLogout();
       const data = await res.json();
       setSessions(data);
     } catch (err) {
@@ -42,10 +47,12 @@ const Sidebar = ({ activeView, setActiveView, activeSessionId, setActiveSessionI
   };
 
   const handleDeleteSession = async (e, id) => {
-    e.stopPropagation(); // Don't trigger session select
+    e.stopPropagation();
     try {
-      await fetch(`${API_BASE_URL}/sessions/${id}/`, { method: 'DELETE' });
-      // If we deleted the active session, clear it
+      await fetch(`${API_BASE_URL}/sessions/${id}/`, { 
+        method: 'DELETE',
+        headers: getHeaders()
+      });
       if (activeSessionId === id) {
         setActiveSessionId(null);
         setActiveView('chat');
@@ -56,7 +63,7 @@ const Sidebar = ({ activeView, setActiveView, activeSessionId, setActiveSessionI
     }
   };
 
-  // Group sessions by date (today, this week, older)
+  // Group sessions by date
   const groupedSessions = sessions.reduce((groups, session) => {
     const created = new Date(session.created_at || Date.now());
     const now = new Date();
@@ -70,7 +77,6 @@ const Sidebar = ({ activeView, setActiveView, activeSessionId, setActiveSessionI
   return (
     <>
       <aside className="sidebar">
-        {/* Header */}
         <div className="sidebar-header">
           <div className="logo-container">
             <div className="logo-icon">🤖</div>
@@ -78,7 +84,6 @@ const Sidebar = ({ activeView, setActiveView, activeSessionId, setActiveSessionI
           </div>
         </div>
 
-        {/* New Chat */}
         <div className="sidebar-action">
           <button className="new-chat-btn" onClick={handleNewChat}>
             <Plus size={18} />
@@ -86,7 +91,6 @@ const Sidebar = ({ activeView, setActiveView, activeSessionId, setActiveSessionI
           </button>
         </div>
 
-        {/* Navigation */}
         <nav className="sidebar-nav">
           <button
             className={`nav-item ${activeView === 'analytics' ? 'active' : ''}`}
@@ -97,7 +101,6 @@ const Sidebar = ({ activeView, setActiveView, activeSessionId, setActiveSessionI
           </button>
         </nav>
 
-        {/* Chat History */}
         <div className="sidebar-history-section">
           {Object.keys(groupedSessions).length === 0 ? (
             <div className="empty-history">
@@ -139,26 +142,33 @@ const Sidebar = ({ activeView, setActiveView, activeSessionId, setActiveSessionI
           )}
         </div>
 
-        {/* Footer - Settings */}
         <div className="sidebar-footer">
           <div className="user-profile">
             <div className="avatar">👤</div>
-            <span className="user-name">User</span>
+            <span className="user-name">{username}</span>
           </div>
-          <button
-            className="icon-btn settings-btn"
-            onClick={() => setShowSettings(true)}
-            title="Open Settings"
-          >
-            <Settings size={18} />
-          </button>
+          <div className="footer-actions">
+            <button
+              className="icon-btn"
+              onClick={() => setShowSettings(true)}
+              title="Settings"
+            >
+              <Settings size={18} />
+            </button>
+            <button
+              className="icon-btn logout-btn"
+              onClick={onLogout}
+              title="Log Out"
+              style={{ color: '#ef4444' }}
+            >
+              <LogOut size={18} />
+            </button>
+          </div>
         </div>
       </aside>
 
-      {/* Settings Modal */}
       {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
     </>
   );
 };
-
 export default Sidebar;

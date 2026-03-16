@@ -4,8 +4,8 @@ import uuid
 
 class ChatSession(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    # Allows anonymous sessions purely by session key, or linked to user if Auth added
-    user_identifier = models.CharField(max_length=255, default="anonymous")
+    # Linked to Django User for data isolation
+    owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name='sessions', null=True, blank=True)
     title = models.CharField(max_length=255, default="New Conversation")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -14,7 +14,7 @@ class ChatSession(models.Model):
         ordering = ['-updated_at']
 
     def __str__(self):
-        return f"{self.title} - {self.user_identifier}"
+        return f"{self.title} ({self.owner.username if self.owner else 'No Owner'})"
 
 class ChatMessage(models.Model):
     ROLE_CHOICES = [

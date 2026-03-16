@@ -8,12 +8,15 @@ class ChatMessageSerializer(serializers.ModelSerializer):
 
 class ChatSessionSerializer(serializers.ModelSerializer):
     messages = ChatMessageSerializer(many=True, read_only=True)
+    owner = serializers.ReadOnlyField(source='owner.username')
     
     class Meta:
         model = ChatSession
-        fields = ['id', 'user_identifier', 'title', 'created_at', 'updated_at', 'messages']
+        fields = ['id', 'owner', 'title', 'messages', 'created_at', 'updated_at']
 
 class ChatSessionListSerializer(serializers.ModelSerializer):
+    owner = serializers.ReadOnlyField(source='owner.username')
+
     class Meta:
         model = ChatSession
-        fields = ['id', 'title', 'created_at', 'updated_at']
+        fields = ['id', 'owner', 'title', 'updated_at']
